@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#09090b" />
+  <rect x="40" y="40" width="1200" height="640" rx="24" fill="#18181b" stroke="#3f3f46" />
+  <text x="640" y="360" text-anchor="middle" fill="#a1a1aa" font-size="36" font-family="system-ui">CricScore · screenshot placeholder</text>
+</svg>
