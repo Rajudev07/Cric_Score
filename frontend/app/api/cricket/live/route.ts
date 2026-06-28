@@ -3,6 +3,8 @@ import { getLiveMatchesFresh } from "@/lib/api/cricapi";
 import { cachedAggregatedFetch } from "@/lib/cache/redisEdgeCache";
 import { reportApiRouteFailure } from "@/lib/monitoring/logger";
 
+export const revalidate = 60;
+
 export async function GET() {
   try {
     const { result, cache } = await cachedAggregatedFetch({
@@ -12,6 +14,7 @@ export async function GET() {
       exSeconds: 200,
       fetcher: getLiveMatchesFresh,
     });
+
     if (!result.ok) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[api/cricket/live] upstream:", result.error);

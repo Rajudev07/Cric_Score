@@ -2,6 +2,7 @@ import type { Match } from "@/lib/data/matches";
 import { mergeFederatedMatchLists } from "@/lib/providers/federation/mergeFederatedMatches";
 import { observeLiveFeed, recordScraperIngestFailure, recordScraperIngestSuccess } from "@/lib/providers/federation/ingestSelfHeal";
 import type { FetchMode } from "@/lib/providers/cricketData/client";
+import { fetchCricketDataCurrentMatchesCached } from "@/lib/providers/cricketData/cache";
 import { fetchCricketDataJson } from "@/lib/providers/cricketData/client";
 import {
   countRawCurrentMatchesPayload,
@@ -22,7 +23,7 @@ import {
   logTransformedMatchRow,
 } from "@/lib/utils/ingestDebugTrace";
 import { ingestDebugEnabled } from "@/lib/utils/ingestDebugFlags";
-import { getMatchPriority, sortMatchesByPriority, getMatchPhase } from "@/lib/utils/matchPriority";
+import { getMatchPriority, sortMatchesByPriority, getMatchPhase, hasValidTeamNames } from "@/lib/utils/matchPriority";
 import { reportProviderFailure } from "@/lib/monitoring/logger";
 import { recordProviderHealthSample } from "@/lib/ops/providerHealth";
 
@@ -41,11 +42,7 @@ async function loadCricketDataLive(
 ): Promise<AggregatedResult<Match[]>> {
   const t0 = Date.now();
   try {
-    const res = await fetchCricketDataJson(
-      "currentMatches",
-      { offset: "0" },
-      mode
-    );
+    const res = await fetchCricketDataCurrentMatchesCached();
     if (!res.ok) {
       recordProviderHealthSample({
         provider: "cricketdata",
@@ -174,7 +171,7 @@ async function aggregateLiveMatchesCore(
       cricketDataIpl: countIplMatches(cdMatches),
     });
     for (const m of merged) logTransformedMatchRow("post-federation-merge", m);
-    const deduped = merged;
+    const deduped = merged.filter(hasValidTeamNames);
     const dedupedRemoved = scraperMatches.length + cdMatches.length - deduped.length;
 
     const sorted = sortMatchesByPriority(deduped);

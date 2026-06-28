@@ -27,10 +27,12 @@ import {
   discoverAndScrapeLiveMatches,
   type LiveDiscoveryDiagnostics,
 } from "@/lib/providers/cricbuzz/discovery/discoverLiveMatchUrls";
+import { matchesFromDiscoveredUrls } from "@/lib/providers/cricbuzz/discovery/parseMatchFromCricbuzzUrl";
 import { consumeForceFreshCricbuzzScraper } from "@/lib/providers/federation/ingestSelfHeal";
 import { reportScraperParseFailure } from "@/lib/monitoring/logger";
 
 const RESULT_TTL_MS = 22_000;
+const SCRAPER_TOTAL_TIMEOUT_MS = 4_000;
 
 let resultCache: { matches: Match[]; fetchedAt: number } | null = null;
 
@@ -110,6 +112,23 @@ function logHtmlDebug(url: string, status: number, html: string): void {
       snippet,
     });
   }
+}
+
+function mergeUrlParsedMatches(htmlMatches: Match[], urlMatches: Match[]): Match[] {
+  const byId = new Map<string, Match>();
+  for (const m of urlMatches) byId.set(m.id, m);
+  for (const m of htmlMatches) {
+    const existing = byId.get(m.id);
+    if (!existing || (m.score1 && m.score1 !== "—")) byId.set(m.id, m);
+  }
+  return [...byId.values()];
+}
+
+function urlMatchesFromDiscovery(diag: LiveDiscoveryDiagnostics | null | undefined): Match[] {
+  const urls = diag?.allDiscoveredUrls?.length
+    ? diag.allDiscoveredUrls
+    : diag?.sampleDiscoveredUrls ?? [];
+  return matchesFromDiscoveredUrls(urls);
 }
 
 function sortScraperPriority(matches: Match[]): Match[] {
@@ -206,13 +225,33 @@ export async function fetchCricbuzzScraperMatches(): Promise<Match[]> {
     parseFailures: [],
   };
 
+  resetCricbuzzIngestCounters();
+
+  const matches = await Promise.race([
+    runCricbuzzScraperIngest(parseFailures, diag, now),
+    new Promise<Match[]>((resolve) => setTimeout(() => resolve([]), SCRAPER_TOTAL_TIMEOUT_MS)),
+  ]);
+
+  if (!matches.length && diag.parseFailures.length === 0) {
+    parseFailures.push({ where: "timeout", detail: `>${SCRAPER_TOTAL_TIMEOUT_MS}ms` });
+    lastRunDiagnostics = { ...diag, parseFailures };
+  }
+
+  return matches;
+}
+
+async function runCricbuzzScraperIngest(
+  parseFailures: { where: string; detail: string }[],
+  diag: CricbuzzScraperRunDiagnostics,
+  now: number
+): Promise<Match[]> {
   try {
-    resetCricbuzzIngestCounters();
     const disc = await discoverAndScrapeLiveMatches({
-      seedTimeoutMs: 16_000,
-      perMatchTimeoutMs: 14_000,
-      concurrency: 4,
-      maxTargets: 40,
+      seedTimeoutMs: 2_000,
+      perMatchTimeoutMs: 2_000,
+      concurrency: 3,
+      maxTargets: 5,
+      maxSeedPages: 5,
     });
     diag.discovery = disc.diagnostics;
 
@@ -238,13 +277,23 @@ export async function fetchCricbuzzScraperMatches(): Promise<Match[]> {
     }
 
     diag.fetchOk = roots.length > 0;
-    if (!diag.fetchOk) {
+    const urlParsed = urlMatchesFromDiscovery(disc.diagnostics);
+
+    if (!diag.fetchOk && urlParsed.length === 0) {
       lastRunDiagnostics = { ...diag, parseFailures: [{ where: "fetch", detail: "no_discovery_no_list_html" }] };
       devLog("no HTML from discovery or list scrape", diag);
       reportScraperParseFailure("cricbuzz scraper: no HTML from discovery or list scrape", {
         diagnostics: diag,
       });
       return [];
+    }
+
+    if (!diag.fetchOk && urlParsed.length > 0) {
+      devLog("URL-parsed fallback (no JSON roots)", urlParsed.length);
+      const sorted = sortScraperPriority(applyScraperIplLiveSafety(urlParsed));
+      resultCache = { matches: sorted, fetchedAt: now };
+      lastRunDiagnostics = diag;
+      return sorted;
     }
 
     diag.extractionTrace = [
@@ -342,10 +391,11 @@ export async function fetchCricbuzzScraperMatches(): Promise<Match[]> {
     if (countLive(matches) === 0) {
       try {
         const disc2 = await discoverAndScrapeLiveMatches({
-          seedTimeoutMs: 16_000,
-          perMatchTimeoutMs: 14_000,
-          concurrency: 4,
-          maxTargets: 40,
+          seedTimeoutMs: 2_000,
+          perMatchTimeoutMs: 2_000,
+          concurrency: 3,
+          maxTargets: 5,
+          maxSeedPages: 5,
           relaxedValidation: true,
         });
         const mergedRoots = [...roots, ...disc2.roots];
@@ -368,6 +418,13 @@ export async function fetchCricbuzzScraperMatches(): Promise<Match[]> {
     diag.iplDetectedCount = countIplMatches(matches);
     logIplRows("post-salvage", matches);
 
+    const urlMerged = urlMatchesFromDiscovery(diag.discovery);
+    if (urlMerged.length) {
+      matches = mergeUrlParsedMatches(matches, urlMerged);
+      matches = sortScraperPriority(applyScraperIplLiveSafety(matches));
+      devLog("merged URL-parsed matches", urlMerged.length, "total", matches.length);
+    }
+
     lastRunDiagnostics = diag;
 
     devLog("[cricscore:cricbuzz-scraper:ingest-counters]", {
@@ -376,6 +433,14 @@ export async function fetchCricbuzzScraperMatches(): Promise<Match[]> {
       scraperSalvageRelaxed: diag.scraperSalvageRelaxed,
       livePhaseCount: countLive(matches),
     });
+
+    if (matches.length === 0) {
+      const urlOnly = urlMatchesFromDiscovery(diag.discovery);
+      if (urlOnly.length) {
+        matches = sortScraperPriority(applyScraperIplLiveSafety(urlOnly));
+        devLog("URL-only fallback matches", matches.length);
+      }
+    }
 
     if (matches.length === 0) {
       console.error("[cricscore:cricbuzz-scraper] ZERO_MATCHES", diag);

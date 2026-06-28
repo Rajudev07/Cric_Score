@@ -1,3 +1,5 @@
+import { recordCricketDataApiInfo } from "@/lib/providers/cricketData/quotaState";
+
 const CRICAPI_BASE = "https://api.cricapi.com/v1";
 export const CRICKETDATA_PROVIDER_ID = "cricketdata";
 
@@ -7,11 +9,41 @@ export type CricketDataResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
-const REVALIDATE_SECONDS = 30;
+const REVALIDATE_SECONDS = 60;
 
 function getApiKey(): string | undefined {
   const key = process.env.CRIC_API_KEY;
   return key?.trim() || undefined;
+}
+
+function unwrapCricketDataRows(payload: unknown): unknown[] {
+  if (typeof payload !== "object" || payload === null) return [];
+  const root = payload as Record<string, unknown>;
+  const data = root.data;
+  if (Array.isArray(data)) return data;
+  if (typeof data === "object" && data !== null && Array.isArray((data as Record<string, unknown>).data)) {
+    return (data as Record<string, unknown>).data as unknown[];
+  }
+  return [];
+}
+
+/** Single currentMatches page (offset=0 only) — quota-conscious. */
+export async function fetchAllCricketDataCurrentMatches(
+  mode: FetchMode = "static"
+): Promise<CricketDataResult<unknown>> {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: "Server misconfiguration: CRIC_API_KEY is not set.",
+    };
+  }
+
+  const res = await fetchCricketDataJson("currentMatches", { offset: "0" }, mode);
+  if (!res.ok) return res;
+
+  const rows = unwrapCricketDataRows(res.data);
+  return { ok: true, data: { status: "success", data: rows } };
 }
 
 export async function fetchCricketDataJson(
@@ -57,6 +89,9 @@ export async function fetchCricketDataJson(
     }
 
     const json: unknown = await res.json();
+    if (typeof json === "object" && json !== null && "info" in json) {
+      recordCricketDataApiInfo((json as Record<string, unknown>).info);
+    }
 
     if (!res.ok) {
       const reason =

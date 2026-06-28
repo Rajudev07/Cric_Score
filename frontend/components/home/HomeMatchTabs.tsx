@@ -1,13 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ScoreFlash } from "@/lib/types/live";
 import EmptyState from "@/components/home/EmptyState";
+import FormatFilter from "@/components/home/FormatFilter";
 import FeaturedMatch, { isHighProfileFeaturedMatch } from "@/components/home/FeaturedMatch";
 import MatchCard from "@/components/matches/MatchCard";
 import MatchNotifyBell from "@/components/notifications/MatchNotifyBell";
 import type { Match } from "@/lib/data/matches";
 import { lastBallCommentaryLine } from "@/lib/utils/lastBall";
+import {
+  FORMAT_FILTER_LABELS,
+  FORMAT_FILTER_STORAGE_KEY,
+  filterMatches,
+  isFormatFilterId,
+  type FormatFilterId,
+} from "@/lib/utils/formatFilter";
 import {
   isPersonalizedFavoriteMatch,
   type MatchPriorityContext,
@@ -38,11 +46,25 @@ export default function HomeMatchTabs({
   rankingContext,
 }: HomeMatchTabsProps) {
   const [tab, setTab] = useState<TabId>("live");
+  const [formatFilter, setFormatFilter] = useState<FormatFilterId>("all");
 
-  const featuredMatch = useMemo(
-    () => live.find((m) => isHighProfileFeaturedMatch(m)) ?? null,
-    [live]
-  );
+  useEffect(() => {
+    const stored = localStorage.getItem(FORMAT_FILTER_STORAGE_KEY);
+    if (stored && isFormatFilterId(stored)) {
+      setFormatFilter(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(FORMAT_FILTER_STORAGE_KEY, formatFilter);
+  }, [formatFilter]);
+
+  const featuredMatch = useMemo(() => {
+    const candidate = live.find((m) => isHighProfileFeaturedMatch(m)) ?? null;
+    if (!candidate) return null;
+    return filterMatches([candidate], formatFilter)[0] ?? null;
+  }, [live, formatFilter]);
+
   const liveWithoutFeatured = useMemo(
     () => (featuredMatch ? live.filter((m) => m.id !== featuredMatch.id) : live),
     [live, featuredMatch]
@@ -54,6 +76,16 @@ export default function HomeMatchTabs({
       : tab === "upcoming"
         ? upcoming
         : completed;
+
+  const filteredList = useMemo(
+    () => filterMatches(activeList, formatFilter),
+    [activeList, formatFilter]
+  );
+
+  const formatEmptyMessage =
+    formatFilter !== "all" && activeList.length > 0 && filteredList.length === 0
+      ? `No ${FORMAT_FILTER_LABELS[formatFilter]} matches right now`
+      : undefined;
 
   return (
     <div className="space-y-8">
@@ -81,6 +113,8 @@ export default function HomeMatchTabs({
         ))}
       </div>
 
+      <FormatFilter value={formatFilter} onChange={setFormatFilter} />
+
       {tab === "live" && featuredMatch ? (
         <section className="space-y-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
@@ -93,13 +127,15 @@ export default function HomeMatchTabs({
         </section>
       ) : null}
 
-      {tab === "live" && activeList.length === 0 && !featuredMatch ? (
+      {formatEmptyMessage ? (
+        <EmptyState tab={tab} upcoming={upcoming} message={formatEmptyMessage} />
+      ) : tab === "live" && filteredList.length === 0 && !featuredMatch ? (
         <EmptyState tab="live" upcoming={upcoming} />
-      ) : tab !== "live" && activeList.length === 0 ? (
+      ) : tab !== "live" && filteredList.length === 0 ? (
         <EmptyState tab={tab} upcoming={upcoming} />
-      ) : activeList.length > 0 ? (
+      ) : filteredList.length > 0 ? (
         <div className="grid gap-6 sm:grid-cols-2">
-          {activeList.map((match) => (
+          {filteredList.map((match) => (
             <div key={match.id} className="relative">
               {tab === "upcoming" ? (
                 <div className="absolute right-3 top-3 z-10">
@@ -123,6 +159,7 @@ export default function HomeMatchTabs({
                 isFavorite={isPersonalizedFavoriteMatch(match, rankingContext)}
                 scoreFlash={scoreFlashById?.[match.id]}
                 lastBall={lastBallCommentaryLine(match.commentary)}
+                startTimeIso={match.startTimeIso}
               />
             </div>
           ))}

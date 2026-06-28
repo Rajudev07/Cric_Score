@@ -1,18 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import type { Match } from "@/lib/data/matches";
+import { useFormattedDate } from "@/lib/hooks/useFormattedDate";
 
 type TabId = "live" | "upcoming" | "completed";
 
 interface EmptyStateProps {
   tab: TabId;
   upcoming?: Match[];
-}
-
-function formatLocalTime(iso: string | null): string | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return null;
-  return new Date(t).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+  message?: string;
 }
 
 function countdownTo(iso: string | null): string | null {
@@ -27,11 +24,22 @@ function countdownTo(iso: string | null): string | null {
   return `in ${m}m`;
 }
 
-export default function EmptyState({ tab, upcoming = [] }: EmptyStateProps) {
+export default function EmptyState({ tab, upcoming = [], message }: EmptyStateProps) {
   const next = upcoming[0];
+  const when = useFormattedDate(next?.startTimeIso ?? undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+  if (message) {
+    return (
+      <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-14 text-center">
+        <p className="text-lg font-semibold text-zinc-200">{message}</p>
+      </div>
+    );
+  }
 
   if (tab === "live") {
-    const when = next ? formatLocalTime(next.startTimeIso) : null;
     return (
       <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-14 text-center">
         <p className="text-lg font-semibold text-zinc-200">No live matches right now</p>

@@ -1,11 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import useSWR from "swr";
 import MatchCard from "@/components/matches/MatchCard";
 import MatchNotifyBell from "@/components/notifications/MatchNotifyBell";
+import FormattedMatchTime from "@/components/schedule/FormattedMatchTime";
 import type { Match } from "@/lib/data/matches";
+import { useScheduleTimezone } from "@/lib/hooks/useScheduleTimezone";
+import { dateKeyInTimezone } from "@/lib/schedule/timezones";
 import { getMatchPhase } from "@/lib/utils/matchPriority";
 
 type FormatFilter = "all" | "test" | "odi" | "t20i" | "women";
@@ -34,19 +36,33 @@ function formatMatches(m: Match, filter: FormatFilter): boolean {
   return true;
 }
 
-function dateBucket(iso: string | null): "today" | "tomorrow" | "week" | "later" {
-  if (!iso) return "later";
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "later";
-  const now = new Date();
-  const d = new Date(t);
-  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startTomorrow = startToday + 86_400_000;
-  const startWeek = startToday + 7 * 86_400_000;
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  if (day === startToday) return "today";
-  if (day === startTomorrow) return "tomorrow";
-  if (day < startWeek) return "week";
+function todayKeyInTimezone(timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function dateBucket(
+  iso: string | null,
+  timeZone: string
+): "today" | "tomorrow" | "week" | "later" {
+  const key = dateKeyInTimezone(iso, timeZone);
+  if (!key) return "later";
+
+  const todayKey = todayKeyInTimezone(timeZone);
+
+  const todayParts = todayKey.split("-").map(Number);
+  const matchParts = key.split("-").map(Number);
+  const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+  const matchDate = new Date(matchParts[0], matchParts[1] - 1, matchParts[2]);
+  const diffDays = Math.round((matchDate.getTime() - todayDate.getTime()) / 86_400_000);
+
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "tomorrow";
+  if (diffDays > 1 && diffDays < 7) return "week";
   return "later";
 }
 
@@ -59,6 +75,7 @@ const BUCKET_LABELS = {
 
 export default function ScheduleClient({ initial }: { initial: Match[] }) {
   const [filter, setFilter] = useState<FormatFilter>("all");
+  const { timezone } = useScheduleTimezone();
   const { data } = useSWR("schedule-upcoming", fetchUpcoming, {
     fallbackData: initial,
     refreshInterval: 60_000,
@@ -77,10 +94,10 @@ export default function ScheduleClient({ initial }: { initial: Match[] }) {
       later: [],
     };
     for (const m of upcoming) {
-      g[dateBucket(m.startTimeIso)].push(m);
+      g[dateBucket(m.startTimeIso, timezone)].push(m);
     }
     return g;
-  }, [upcoming]);
+  }, [upcoming, timezone]);
 
   return (
     <div className="space-y-8">
@@ -108,22 +125,25 @@ export default function ScheduleClient({ initial }: { initial: Match[] }) {
             <h2 className="text-lg font-bold text-zinc-100">{BUCKET_LABELS[key]}</h2>
             <div className="grid gap-6 sm:grid-cols-2">
               {list.map((m) => (
-                <div key={m.id} className="relative">
-                  <div className="absolute right-3 top-3 z-10">
-                    <MatchNotifyBell matchId={m.id} label={`${m.team1} vs ${m.team2}`} />
+                <div key={m.id}>
+                  <FormattedMatchTime iso={m.startTimeIso} timeZone={timezone} />
+                  <div className="relative">
+                    <div className="absolute right-3 top-3 z-10">
+                      <MatchNotifyBell matchId={m.id} label={`${m.team1} vs ${m.team2}`} />
+                    </div>
+                    <MatchCard
+                      id={m.id}
+                      league={m.league}
+                      team1={m.team1}
+                      team2={m.team2}
+                      score1={m.score1}
+                      score2={m.score2}
+                      status={m.status}
+                      overs={m.overs}
+                      matchType={m.matchType}
+                      isLive={m.isLive}
+                    />
                   </div>
-                  <MatchCard
-                    id={m.id}
-                    league={m.league}
-                    team1={m.team1}
-                    team2={m.team2}
-                    score1={m.score1}
-                    score2={m.score2}
-                    status={m.status}
-                    overs={m.overs}
-                    matchType={m.matchType}
-                    isLive={m.isLive}
-                  />
                 </div>
               ))}
             </div>

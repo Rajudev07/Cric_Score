@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "CricScore",
     short_name: "CricScore",
-    description: "Live cricket scores, IPL, fixtures, and personalized feeds.",
+    description: "Live cricket scores, fixtures, and personalized feeds.",
     start_url: "/",
     scope: "/",
     display: "standalone",

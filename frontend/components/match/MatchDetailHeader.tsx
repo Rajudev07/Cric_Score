@@ -3,6 +3,7 @@
 import type { Match } from "@/lib/data/matches";
 import LiveBadge from "@/components/live/LiveBadge";
 import LiveScoreUpdater from "@/components/live/LiveScoreUpdater";
+import ShareButton from "@/components/ui/ShareButton";
 import { expandTeamShortCode } from "@/lib/utils/teamNameExpansion";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,11 @@ export default function MatchDetailHeader({
   const t1 = expandTeamShortCode(match.team1);
   const t2 = expandTeamShortCode(match.team2);
 
+  const statusLine =
+    match.score1 && match.score1 !== "—"
+      ? `${t1} ${match.score1}${match.overs && match.overs !== "—" ? ` (${match.overs} ov)` : ""}`
+      : match.status;
+
   return (
     <div className="py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -31,7 +37,10 @@ export default function MatchDetailHeader({
             {t1} <span className="font-medium text-zinc-500">vs</span> {t2}
           </h1>
         </div>
-        {match.isLive ? <LiveBadge /> : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {match.isLive ? <LiveBadge /> : null}
+          <ShareButton matchTitle={`${t1} vs ${t2}`} statusLine={statusLine} />
+        </div>
       </div>
       <div className="mt-2 flex flex-wrap gap-4 text-sm">
         <span className="text-zinc-400">

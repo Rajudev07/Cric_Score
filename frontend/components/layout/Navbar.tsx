@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import FavoritesDrawer from "@/components/user/FavoritesDrawer";
 import SearchDialog from "@/components/search/SearchDialog";
+import ThemeToggle from "@/components/ui/ThemeToggle";
 import type { Match } from "@/lib/data/matches";
 import { cn } from "@/lib/utils";
 
@@ -143,6 +144,7 @@ export default function Navbar() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             {liveCount > 0 ? (
               <span className="hidden rounded-md bg-[var(--color-brand)] px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-white md:inline">
                 LIVE {liveCount}

@@ -161,15 +161,48 @@ function deriveStarted(
 }
 
 function deriveLive(raw: Record<string, unknown>): boolean {
-  const started = raw.matchStarted === true;
+  if (raw.matchStarted === true && raw.matchEnded !== true) return true;
+
   const ended = deriveEnded(raw);
-  const statusLower = str(raw.status).toLowerCase();
   if (ended) return false;
-  if (started && !ended) return true;
+
+  const status = str(raw.status).toLowerCase();
+  const liveSignals = [
+    "need",
+    "needs",
+    "trail",
+    "trails",
+    "lead",
+    "leads",
+    "batting",
+    "bowling",
+    "in progress",
+    "live",
+    "balls remaining",
+    "runs remaining",
+    "day ",
+    "session",
+    "over ",
+    "innings",
+  ];
+  if (liveSignals.some((s) => status.includes(s))) return true;
+
+  const resultSignals = ["won", "lost", "draw", "tied", "abandoned", "no result", "cancelled"];
+  const hasResult = resultSignals.some((s) => status.includes(s));
+  const dateTimeGMT = str(raw.dateTimeGMT ?? raw.date ?? raw.startDate);
+  if (!hasResult && dateTimeGMT) {
+    const matchDate = Date.parse(dateTimeGMT);
+    if (Number.isFinite(matchDate)) {
+      const diffHours = (Date.now() - matchDate) / 3_600_000;
+      if (diffHours > 0 && diffHours < 10) return true;
+    }
+  }
+
+  if (raw.matchStarted === true && !ended) return true;
   return (
-    statusLower.includes("live") ||
-    statusLower.includes("in progress") ||
-    statusLower.includes("opt to")
+    status.includes("live") ||
+    status.includes("in progress") ||
+    status.includes("opt to")
   );
 }
 

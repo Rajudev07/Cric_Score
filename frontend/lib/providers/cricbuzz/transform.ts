@@ -365,6 +365,29 @@ function bestHeadlineForTeams(mi: Record<string, unknown>, row: Record<string, u
   return cands.find((s) => s.length > 3) ?? "";
 }
 
+const PLACEHOLDER_TEAM_NAMES = new Set([
+  "team 1",
+  "team 2",
+  "tba",
+  "tbd",
+  "unknown",
+  "home",
+  "away",
+  "cricket",
+  "",
+]);
+
+export function isPlaceholderTeamName(name: string): boolean {
+  return PLACEHOLDER_TEAM_NAMES.has(name.toLowerCase().trim());
+}
+
+export function filterPlaceholderCricbuzzMatches(matches: Match[]): Match[] {
+  return matches.filter(
+    (m) =>
+      !isPlaceholderTeamName(m.team1 ?? "") && !isPlaceholderTeamName(m.team2 ?? "")
+  );
+}
+
 export type CricbuzzTransformOptions = {
   /** Skip strict team cleaning — URL blacklist only at discovery; permissive teams here. */
   relaxedTeams?: boolean;
@@ -410,8 +433,11 @@ export function normalizeCricbuzzMatchCandidate(
       );
     }
     if (transformOpts?.relaxedTeams) {
-      const t1 = (cleanTeamString(raw.team1) || str(mi.team1Name ?? "")).slice(0, 56) || "Team 1";
-      const t2 = (cleanTeamString(raw.team2) || str(mi.team2Name ?? "")).slice(0, 56) || "Team 2";
+      const t1 = (cleanTeamString(raw.team1) || str(mi.team1Name ?? "")).slice(0, 56);
+      const t2 = (cleanTeamString(raw.team2) || str(mi.team2Name ?? "")).slice(0, 56);
+      if (!t1 || !t2 || isPlaceholderTeamName(t1) || isPlaceholderTeamName(t2)) {
+        return { ok: false, reason: `relaxed_placeholder_teams path=${discPath}` };
+      }
       return buildMatchFromParts(row, mi, t1, t2, discPath, "relaxed_raw", sourceUrl, {
         ...transformOpts,
         relaxedStale: true,
@@ -460,16 +486,22 @@ function buildMatchFromParts(
   sourceUrl?: string,
   transformOpts?: CricbuzzTransformOptions
 ): NormalizeCricbuzzResult {
-  const idRaw =
-    mi.matchId ?? mi.id ?? row.matchId ?? row.id ?? `${team1}-${team2}`;
-  const id = `cbz-${String(idRaw)}`;
+  const idRaw = mi.matchId ?? mi.id ?? row.matchId ?? row.id;
+  const startKey = str(
+    mi.startDate ?? mi.matchStartTime ?? mi.date ?? row.startDate ?? row.date ?? ""
+  );
+  const id =
+    idRaw !== undefined && idRaw !== null
+      ? `cbz-${String(idRaw)}`
+      : `cbz-${team1}-${team2}-${startKey || discPath}`;
 
   const status =
     str(mi.status ?? mi.matchStatus ?? mi.state ?? row.status ?? row.state ?? "") ||
     "Live";
 
   const series = str(mi.seriesName ?? mi.series ?? row.seriesName ?? row.series ?? "");
-  const league = deriveLeagueLabel(series, status, team1, team2);
+  const matchType = str(mi.matchType ?? mi.type ?? row.matchType ?? row.type ?? "T20");
+  const league = deriveLeagueLabel(series, status, team1, team2, matchType);
 
   const ms = asRecord(row.matchScore) ?? asRecord(row.score) ?? asRecord(mi.matchScore);
   let score1 = "—";
@@ -553,7 +585,7 @@ function buildMatchFromParts(
       isLive,
       matchStarted,
       matchEnded,
-      matchType: str(mi.matchType ?? mi.type ?? row.matchType ?? row.type ?? "T20"),
+      matchType,
       startTimeIso: str(mi.startDate ?? mi.date ?? mi.matchStartTime ?? row.startDate) || null,
       batting: [],
       bowling: [],
@@ -743,14 +775,39 @@ function peekScoreboardStrings(
   return { score1, score2, overs };
 }
 
-function deriveLeagueLabel(series: string, status: string, team1: string, team2: string): string {
+function deriveLeague(matchType: string, seriesName: string): string {
+  const t = matchType.toLowerCase();
+  const s = seriesName.toLowerCase();
+
+  if (t.includes("test")) return "test";
+  if (t.includes("odi")) return "odi";
+  if (t.includes("t20i")) return "t20i";
+  if (t.includes("t20")) return "t20";
+
+  if (s.includes("test")) return "test";
+  if (s.includes("odi") || s.includes("one day")) return "odi";
+  if (s.includes("t20i") || s.includes("twenty20 international")) return "t20i";
+  if (s.includes("t20") || s.includes("twenty20")) return "t20";
+
+  return "t20";
+}
+
+function deriveLeagueLabel(
+  series: string,
+  status: string,
+  team1: string,
+  team2: string,
+  matchType: string
+): string {
   const hay = `${series} ${status} ${team1} ${team2}`;
   if (containsIplSignals(hay, { silent: true })) {
     const m = hay.match(/\b(?:tata\s+)?ipl\s*20\d{2}\b/i);
     if (m) return m[0].replace(/\s+/g, " ").trim();
     return "IPL";
   }
-  return str(series.slice(0, 120)) || "Cricket";
+  const trimmed = str(series.slice(0, 120));
+  if (trimmed && trimmed.toLowerCase() !== "cricket") return trimmed;
+  return deriveLeague(matchType, series);
 }
 
 export function stableCricbuzzRowId(row: Record<string, unknown>): string {
@@ -761,7 +818,8 @@ export function stableCricbuzzRowId(row: Record<string, unknown>): string {
     teamFrom(mi.team1 ?? mi.teamHome ?? mi.homeTeam) || str(mi.team1Name ?? "");
   const t2 =
     teamFrom(mi.team2 ?? mi.teamAway ?? mi.awayTeam) || str(mi.team2Name ?? "");
-  if (t1 || t2) return `${t1}|${t2}`;
+  const startKey = str(mi.startDate ?? mi.matchStartTime ?? mi.date ?? "");
+  if (t1 || t2) return `${t1}|${t2}|${startKey}`;
   const keys = Object.keys(mi).sort().join(",");
   return `k:${keys.slice(0, 120)}`;
 }
@@ -809,5 +867,5 @@ export function transformCricbuzzLivePayload(
 
   bumpCricbuzzMatchesEmitted(out.length);
 
-  return out;
+  return filterPlaceholderCricbuzzMatches(out);
 }

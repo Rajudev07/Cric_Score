@@ -6,9 +6,26 @@ import {
   getAggregatedMatchById,
 } from "@/lib/providers/aggregator";
 import { fetchCricketDataJson } from "@/lib/providers/cricketData/client";
+import {
+  fetchCricketDataCurrentMatchesCached,
+  getCricketDataQuotaSnapshot,
+} from "@/lib/providers/cricketData/cache";
+import {
+  incrementCricketDataCallCount,
+  isCricketDataQuotaExhausted,
+  recordCricketDataApiInfo,
+} from "@/lib/providers/cricketData/quotaState";
 import { transformMatchesListPayload } from "@/lib/providers/cricketData/transform";
 
 export type CricApiResult<T> = AggregatedResult<T>;
+
+export { getCricketDataQuotaSnapshot, fetchCricketDataWithCache } from "@/lib/providers/cricketData/cache";
+
+function extractApiInfo(payload: unknown): void {
+  if (typeof payload !== "object" || payload === null) return;
+  const root = payload as Record<string, unknown>;
+  if (root.info) recordCricketDataApiInfo(root.info);
+}
 
 function unwrapArray(payload: unknown): unknown[] {
   const data = (() => {
@@ -35,8 +52,13 @@ export async function getLiveMatchesFresh(): Promise<CricApiResult<Match[]>> {
 }
 
 export async function getUpcomingMatches(): Promise<CricApiResult<Match[]>> {
+  if (isCricketDataQuotaExhausted()) {
+    return { ok: true, data: [] };
+  }
   const res = await fetchCricketDataJson("matches", { offset: "0" });
-  if (!res.ok) return res;
+  incrementCricketDataCallCount();
+  if (res.ok) extractApiInfo(res.data);
+  if (!res.ok) return { ok: true, data: [] };
   const matches = transformMatchesListPayload(res.data);
   return { ok: true, data: matches };
 }

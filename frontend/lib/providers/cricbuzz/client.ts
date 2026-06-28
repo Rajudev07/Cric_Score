@@ -11,11 +11,5 @@ export type CricbuzzFetchResult<T> =
 export async function fetchCricbuzzLivePayload(): Promise<
   CricbuzzFetchResult<unknown>
 > {
-  if (process.env.NODE_ENV === "development") {
-    console.log(
-      "[cricscore:cricbuzz]",
-      "JSON wrapper disabled (scraper-first architecture)."
-    );
-  }
   return { ok: false, error: "Cricbuzz JSON wrapper disabled." };
 }

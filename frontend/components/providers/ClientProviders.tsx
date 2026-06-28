@@ -6,6 +6,7 @@ import ConnectivityBar from "@/components/layout/ConnectivityBar";
 import Footer from "@/components/layout/Footer";
 import Navbar from "@/components/layout/Navbar";
 import PwaInstallBanner from "@/components/pwa/PwaInstallBanner";
+import NavigationProgress from "@/components/ui/NavigationProgress";
 import { dispatchAnalytics } from "@/lib/analytics/track";
 import { useAnalyticsPageView } from "@/lib/hooks/useAnalyticsPageView";
 import { reportClientRuntimeError } from "@/lib/monitoring/logger";
@@ -81,6 +82,7 @@ export default function ClientProviders({ children }: { children: React.ReactNod
 
   return (
     <>
+      <NavigationProgress />
       <PwaInstallBanner />
       <ConnectivityBar />
       <Navbar />

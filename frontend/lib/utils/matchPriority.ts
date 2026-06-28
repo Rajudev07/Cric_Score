@@ -39,7 +39,27 @@ function livePrioLog(...args: unknown[]): void {
 }
 
 const ASSOCIATE_MARKERS =
-  /\b(romania|bulgaria|estonia|malta|cyprus|serbia|slovenia|croatia|hungary|luxembourg|finland|sweden|norway|denmark|portugal|greece|austria|switzerland|belgium|czech|slovakia|turkey|kuwait|qatar|bahrain|saudi|oman|uae|malaysia|singapore|thailand|philippines|japan|china|vanuatu|samoa|bermuda|cayman|bahamas)\b/i;
+  /\b(romania|bulgaria|estonia|malta|cyprus|serbia|slovenia|croatia|hungary|luxembourg|finland|sweden|norway|denmark|portugal|greece|austria|switzerland|belgium|czech|slovakia|turkey|kuwait|qatar|bahrain|saudi|oman|uae|malaysia|singapore|thailand|philippines|japan|china|vanuatu|samoa|bermuda|cayman|bahamas|worcestershire|sussex)\b/i;
+
+const LOW_VALUE_INDICATORS =
+  /\b(bulgaria|serbia|norway|denmark|switzerland|czech|romania|austria|germany|france|jersey|isle of man|guernsey|finland|sweden|estonia|latvia|lithuania|luxembourg|worcestershire|sussex|europe|regional)\b/i;
+
+const HIGH_VALUE_TEAMS = [
+  "india",
+  "australia",
+  "england",
+  "pakistan",
+  "south africa",
+  "new zealand",
+  "west indies",
+  "sri lanka",
+  "bangladesh",
+  "zimbabwe",
+  "afghanistan",
+  "ireland",
+  "netherlands",
+  "scotland",
+] as const;
 
 const MAJOR_LEAGUES =
   /\b(psl|pakistan super league|bbl|big bash|cpl|caribbean premier|sa20|sat20|the hundred|hundred|ilt20|international league t20|global t20|major league cricket|mlc)\b/i;
@@ -126,6 +146,60 @@ export function isPersonalizedFavoriteMatch(
   return matchFavoriteTeamBoost(m, ctx) > 0 || matchFavoriteTournamentBoost(m, ctx) > 0;
 }
 
+export function matchPriorityScore(match: Match): number {
+  let score = 0;
+
+  if (match.isLive) score += 1000;
+
+  const teamsLower = [
+    match.team1?.toLowerCase() ?? "",
+    match.team2?.toLowerCase() ?? "",
+  ];
+  const highValueCount = teamsLower.filter((t) =>
+    HIGH_VALUE_TEAMS.some((h) => t.includes(h))
+  ).length;
+  score += highValueCount * 200;
+
+  const seriesHay = `${match.league} ${match.team1} ${match.team2}`.toLowerCase();
+  const isWomens = seriesHay.includes("women");
+  if (isWomens && highValueCount >= 1) score += 100;
+
+  const format = (match.matchType ?? "").toLowerCase();
+  if (format.includes("test")) score += 150;
+  else if (format.includes("odi")) score += 100;
+  else if (format.includes("t20i") || format.includes("t20")) score += 80;
+
+  const isLowValue = [
+    ...teamsLower,
+    match.league.toLowerCase(),
+  ].some((s) => LOW_VALUE_INDICATORS.test(s));
+  if (isLowValue) score -= 500;
+
+  return score;
+}
+
+export function isLowValueMatch(m: Match): boolean {
+  const teamsLower = [
+    m.team1?.toLowerCase() ?? "",
+    m.team2?.toLowerCase() ?? "",
+  ];
+  return [...teamsLower, m.league.toLowerCase()].some((s) => LOW_VALUE_INDICATORS.test(s));
+}
+
+export function hasValidTeamNames(m: Match): boolean {
+  const nameA = m.team1?.trim() ?? "";
+  const nameB = m.team2?.trim() ?? "";
+  const invalid = ["team 1", "team 2", "tba", "tbd", "", "cricket", "unknown", "home", "away"];
+  const a = nameA.toLowerCase();
+  const b = nameB.toLowerCase();
+  return (
+    nameA.length > 2 &&
+    nameB.length > 2 &&
+    !invalid.includes(a) &&
+    !invalid.includes(b)
+  );
+}
+
 export function getMatchPriority(m: Match, ctx?: MatchPriorityContext): number {
   const h = haystack(m);
   let p = PRIORITY_DEFAULT;
@@ -159,6 +233,9 @@ export function sortMatchesByPriority(
   ctx?: MatchPriorityContext
 ): Match[] {
   return [...matches].sort((a, b) => {
+    const scoreDiff = matchPriorityScore(b) - matchPriorityScore(a);
+    if (scoreDiff !== 0) return scoreDiff;
+
     const pa = getMatchPriority(a, ctx);
     const pb = getMatchPriority(b, ctx);
     if (pa !== pb) return pb - pa;
@@ -276,9 +353,7 @@ export function filterDuplicateMatches(matches: Match[]): Match[] {
 }
 
 export function isValidDisplayMatch(m: Match): boolean {
-  const t1 = m.team1?.trim();
-  const t2 = m.team2?.trim();
-  return Boolean(t1 && t2);
+  return hasValidTeamNames(m);
 }
 
 export function isCompletedStatusText(status: string): boolean {
@@ -460,8 +535,14 @@ export function buildHomeBuckets(
     else completed.push(adjusted);
   }
 
+  const sortedLive = sortMatchesByPriority(live, ctx);
+  const fullMemberLive = sortedLive.filter((m) => !isLowValueMatch(m));
+  const lowPriorityLive = sortedLive.filter((m) => isLowValueMatch(m));
+  const liveToShow =
+    fullMemberLive.length > 0 ? fullMemberLive : lowPriorityLive;
+
   return {
-    live: sortMatchesByPriority(live, ctx),
+    live: liveToShow,
     upcoming: sortMatchesByPriority(upcoming, ctx),
     completed: sortMatchesByPriority(completed, ctx),
   };

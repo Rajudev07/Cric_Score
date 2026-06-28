@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import useSWR from "swr";
 import type { Match } from "@/lib/data/matches";
 import { useMatchSnapshotEvents } from "@/lib/hooks/useMatchUpdateDetection";
@@ -45,26 +45,32 @@ async function fetchMatchDetail(id: string, fallback: Match): Promise<Match> {
 
 export function useLiveMatchDetail(initialMatch: Match) {
   const [lastUpdated, setLastUpdated] = useState(() => new Date());
+  const matchId = initialMatch.id;
+  const isLive = initialMatch.isLive;
+  const fallbackRef = useRef(initialMatch);
+  fallbackRef.current = initialMatch;
+
+  const swrKey = isLive ? `cricket-match-live-${matchId}` : null;
 
   const { data, error, isValidating, mutate } = useSWR(
-    initialMatch.isLive ? ["cricket-match-live", initialMatch.id] : null,
-    () => fetchMatchDetail(initialMatch.id, initialMatch),
+    swrKey,
+    () => fetchMatchDetail(matchId, fallbackRef.current),
     {
       fallbackData: initialMatch,
       keepPreviousData: true,
       refreshInterval: (latest) => {
-        const m = latest ?? initialMatch;
+        const m = latest ?? fallbackRef.current;
         return m.isLive ? POLL_MS : 0;
       },
       dedupingInterval: 12_000,
       compare: (a, b) => {
-        if (!a || !b) return false;
+        if (!a || !b) return a === b;
         return sameMatchVisibleSlice(a, b);
       },
       errorRetryCount: 5,
       errorRetryInterval: 4000,
-      revalidateOnFocus: initialMatch.isLive,
-      revalidateOnReconnect: initialMatch.isLive,
+      revalidateOnFocus: isLive,
+      revalidateOnReconnect: isLive,
       refreshWhenOffline: false,
       onSuccess() {
         setLastUpdated(new Date());

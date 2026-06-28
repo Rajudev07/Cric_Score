@@ -25,11 +25,13 @@ function discoverLog(...args: unknown[]): void {
 const DEFAULT_SEED_URLS = [
   "https://www.cricbuzz.com/",
   "https://www.cricbuzz.com/cricket-match/live-scores",
+  "https://www.cricbuzz.com/cricket-match/live-scores/international",
   "https://www.cricbuzz.com/live-cricket-scores/",
   "https://www.cricbuzz.com/cricket-schedule/series/international",
   "https://www.cricbuzz.com/cricket-schedule/upcoming-series/international",
   "https://www.cricbuzz.com/cricket-match/live-scores/upcoming-matches",
   "https://www.cricbuzz.com/cricket-series",
+  "https://www.cricbuzz.com/cricket-series/live",
 ];
 
 function seedUrlsToFetch(): string[] {
@@ -59,6 +61,7 @@ export type LiveDiscoveryDiagnostics = {
   scrapeSuccessPct: number | null;
   discoverySources: string[];
   sampleDiscoveredUrls: string[];
+  allDiscoveredUrls: string[];
   relaxedValidation?: boolean;
   ingestCountersSnapshot?: {
     pagesFetched: number;
@@ -76,10 +79,9 @@ async function fetchHtmlWithTimeout(
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
-      cache: "no-store",
       headers: cricbuzzBrowserHeaders(),
       signal: ctrl.signal,
-      next: { revalidate: 0 },
+      next: { revalidate: 30 },
     });
     const html = await res.text();
     if (!res.ok) return null;
@@ -97,10 +99,12 @@ async function fetchHtmlWithTimeout(
 export async function discoverLiveMatchUrls(options?: {
   seedTimeoutMs?: number;
   maxTargets?: number;
+  maxSeedPages?: number;
 }): Promise<{ targets: DiscoveredMatchTarget[]; diagnostics: LiveDiscoveryDiagnostics }> {
-  const seedTimeoutMs = options?.seedTimeoutMs ?? 16_000;
-  const maxTargets = options?.maxTargets ?? 40;
-  const seeds = seedUrlsToFetch();
+  const seedTimeoutMs = options?.seedTimeoutMs ?? 2_000;
+  const maxTargets = options?.maxTargets ?? 5;
+  const maxSeedPages = options?.maxSeedPages ?? 5;
+  const seeds = seedUrlsToFetch().slice(0, maxSeedPages);
 
   const settled = await Promise.all(
     seeds.map(async (url) => {
@@ -163,6 +167,7 @@ export async function discoverLiveMatchUrls(options?: {
 
   const liveHints = targets.filter((t) => t.livePriority).length;
   const sampleDiscoveredUrls = [...globalUrl].slice(0, 20);
+  const allDiscoveredUrls = [...globalUrl];
 
   const diagnostics: LiveDiscoveryDiagnostics = {
     seedsTried: seeds.length,
@@ -179,6 +184,7 @@ export async function discoverLiveMatchUrls(options?: {
     scrapeSuccessPct: null,
     discoverySources,
     sampleDiscoveredUrls,
+    allDiscoveredUrls,
   };
 
   discoverLog({
@@ -248,7 +254,7 @@ export async function scrapeDiscoveredMatchPages(
   options?: { concurrency?: number; timeoutMs?: number; relaxedValidation?: boolean }
 ): Promise<{ roots: unknown[]; diagnostics: Pick<LiveDiscoveryDiagnostics, "scrapeAttempts" | "scrapeSuccess" | "scrapeFailures" | "scrapeSuccessPct" | "relaxedValidation" | "ingestCountersSnapshot"> }> {
   const concurrency = Math.max(1, Math.min(8, options?.concurrency ?? 4));
-  const timeoutMs = options?.timeoutMs ?? 14_000;
+  const timeoutMs = options?.timeoutMs ?? 2_000;
   const relaxedValidation = options?.relaxedValidation ?? false;
   const buckets: DiscoveredMatchTarget[][] = Array.from({ length: concurrency }, () => []);
   targets.forEach((t, i) => {
@@ -309,11 +315,13 @@ export async function discoverAndScrapeLiveMatches(options?: {
   perMatchTimeoutMs?: number;
   concurrency?: number;
   maxTargets?: number;
+  maxSeedPages?: number;
   relaxedValidation?: boolean;
 }): Promise<{ roots: unknown[]; diagnostics: LiveDiscoveryDiagnostics }> {
   const { targets, diagnostics: d0 } = await discoverLiveMatchUrls({
     seedTimeoutMs: options?.seedTimeoutMs,
     maxTargets: options?.maxTargets,
+    maxSeedPages: options?.maxSeedPages,
   });
   if (!targets.length) {
     return {

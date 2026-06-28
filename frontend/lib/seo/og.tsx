@@ -22,7 +22,7 @@ export function renderHomeOgImage(): ImageResponse {
       >
         <div style={{ fontSize: 64, fontWeight: 800, letterSpacing: -2 }}>CricScore</div>
         <div style={{ marginTop: 16, fontSize: 30, color: "#a1a1aa" }}>
-          Live IPL & international scores
+          Live international cricket scores
         </div>
         <div style={{ marginTop: 36, fontSize: 22, color: "#71717a" }}>cricscore.app</div>
       </div>

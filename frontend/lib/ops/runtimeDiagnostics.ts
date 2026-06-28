@@ -24,6 +24,8 @@ export async function collectOpsDiagnostics() {
     /* scraper self-reports via lastRunDiagnostics */
   }
 
+  const { getCricketDataQuotaSnapshot } = await import("@/lib/providers/cricketData/cache");
+
   const indexing = runIndexingPathChecks();
   let sitemapProbe: { ok: boolean; status?: number; error?: string } | undefined;
   try {
@@ -38,6 +40,7 @@ export async function collectOpsDiagnostics() {
     runtime: getNodeRuntimeSnapshot(),
     indexing: { ...indexing, sitemapProbe },
     scraper,
+    cricketData: getCricketDataQuotaSnapshot(),
   };
 }
 

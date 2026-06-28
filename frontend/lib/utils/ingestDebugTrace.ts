@@ -1,7 +1,5 @@
 import type { Match } from "@/lib/data/matches";
-import { unwrapData } from "@/lib/providers/cricketData/transform";
-import { debugForceLiveIngestEnabled, ingestDebugEnabled } from "@/lib/utils/ingestDebugFlags";
-import { explainIplSignals } from "@/lib/utils/iplDetection";
+import { debugForceLiveIngestEnabled } from "@/lib/utils/ingestDebugFlags";
 
 export { ingestDebugEnabled, debugForceLiveIngestEnabled } from "@/lib/utils/ingestDebugFlags";
 
@@ -43,58 +41,12 @@ export function isDcRrFixture(m: Pick<Match, "team1" | "team2">): boolean {
   return hasDc && hasRr;
 }
 
-export function logTransformedMatchRow(stage: string, m: Match): void {
-  if (!ingestDebugEnabled() || !isIngestRowDebugTarget(m)) return;
-  const ipl = explainIplSignals(`${m.league} ${m.team1} ${m.team2} ${m.matchType} ${m.status}`);
-  console.log(`[cricscore:ingest-row] ${stage}`, {
-    id: m.id,
-    team1: m.team1,
-    team2: m.team2,
-    league: m.league,
-    matchType: m.matchType,
-    status: m.status.slice(0, 120),
-    isLive: m.isLive,
-    matchStarted: m.matchStarted,
-    matchEnded: m.matchEnded,
-    startTimeIso: m.startTimeIso,
-    score1: m.score1,
-    score2: m.score2,
-    overs: m.overs,
-    provider: m.provider,
-    iplExplain: ipl,
-  });
+export function logTransformedMatchRow(_stage: string, _m: Match): void {
+  return;
 }
 
-export function logRawCricketDataPayload(stage: string, payload: unknown): void {
-  if (!ingestDebugEnabled()) return;
-  const data = unwrapData(payload);
-  if (!Array.isArray(data)) {
-    console.log(`[cricscore:ingest-raw-cd] ${stage} non-array`, typeof data);
-    return;
-  }
-  for (const item of data) {
-    const blob = JSON.stringify(item).toLowerCase();
-    if (
-      !blob.includes("dc") &&
-      !blob.includes("delhi") &&
-      !blob.includes("rr") &&
-      !blob.includes("rajasthan") &&
-      !blob.includes("ipl") &&
-      !blob.includes("indian") &&
-      !blob.includes("t20 league")
-    ) {
-      continue;
-    }
-    const rec = item as Record<string, unknown>;
-    console.log(`[cricscore:ingest-raw-cd] ${stage}`, {
-      id: rec.id ?? rec.unique_id ?? rec.match_id,
-      name: rec.name ?? rec.title,
-      status: rec.status ?? rec.matchstatus ?? rec.state,
-      series: rec.seriesName ?? (rec.series as { name?: string })?.name,
-      type: rec.type ?? rec.matchType,
-      rawSnippet: JSON.stringify(item).slice(0, 500),
-    });
-  }
+export function logRawCricketDataPayload(_stage: string, _payload: unknown): void {
+  return;
 }
 
 export function applyIngestDebugLiveOverride(m: Match): Match {

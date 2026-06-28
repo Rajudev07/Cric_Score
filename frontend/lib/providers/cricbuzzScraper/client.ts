@@ -71,11 +71,13 @@ async function saveCricbuzzDebugHtmlSnapshot(url: string, html: string): Promise
 }
 
 async function fetchHtmlOnce(url: string): Promise<{ html: string; status: number } | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2_000);
   try {
     const res = await fetch(url, {
-      cache: "no-store",
       headers: cricbuzzBrowserHeaders(),
-      next: { revalidate: 0 },
+      signal: controller.signal,
+      next: { revalidate: 30 },
     });
     const html = await res.text();
     if (!res.ok) {
@@ -86,6 +88,8 @@ async function fetchHtmlOnce(url: string): Promise<{ html: string; status: numbe
   } catch (e) {
     devLog("fetch error", url, e instanceof Error ? e.message : String(e));
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

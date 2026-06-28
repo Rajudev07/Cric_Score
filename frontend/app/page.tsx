@@ -4,10 +4,10 @@ import { getLiveMatches, getUpcomingMatches } from "@/lib/api/cricapi";
 import { buildAppMetadata } from "@/lib/seo/buildMetadata";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const year = new Date().getFullYear();
   return buildAppMetadata({
-    title: `IPL ${year} Live Scores`,
-    description: `IPL ${year} live scores, fixtures, commentary-rich match pages, and prioritized feeds on CricScore.`,
+    title: "CricScore — Live Cricket Scores",
+    description:
+      "Live cricket scores, scorecards, and commentary for international matches. Free, fast, no ads.",
     path: "/",
   });
 }
@@ -58,9 +58,7 @@ export default async function Home() {
   const partialNote =
     !liveRes.ok && upcomingRes.ok
       ? `Live feed unavailable (${liveRes.error}). Showing fixtures where possible.`
-      : liveRes.ok && !upcomingRes.ok
-        ? `Fixture list unavailable (${upcomingRes.error}). Showing live feed only.`
-        : null;
+      : null;
 
   return (
     <div className="flex min-h-screen flex-col bg-black">

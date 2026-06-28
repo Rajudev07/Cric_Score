@@ -47,9 +47,30 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-black text-zinc-300">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+  (function() {
+    try {
+      var stored = localStorage.getItem('cricscore-theme');
+      var resolved = stored === 'dark' ? 'dark'
+        : stored === 'light' ? 'light'
+        : window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark' : 'light';
+      if (resolved === 'dark') {
+        document.documentElement.classList.add('dark');
+      }
+    } catch(e) {}
+  })();
+`,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col">
         <StructuredData id="ld-organization" data={buildOrganizationJsonLd()} />
         <StructuredData id="ld-website" data={buildWebSiteJsonLd()} />
         <PosthogInit />

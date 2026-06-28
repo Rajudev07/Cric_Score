@@ -12,7 +12,6 @@ import { useLiveMatchesFeed } from "@/lib/hooks/useLiveMatches";
 import { useUserPreferences } from "@/lib/hooks/useUserPreferences";
 import type { ScoreFlash } from "@/lib/types/live";
 import { preferencesToPriorityContext } from "@/lib/user/ranking";
-import { containsIplSignals } from "@/lib/utils/iplDetection";
 import { debugLogHomeIngest } from "@/lib/utils/matchPriority";
 
 interface LiveMatchesClientProps {
@@ -75,39 +74,8 @@ export default function LiveMatchesClient({
     prevLiveRef.current = new Map(buckets.live.map((m) => [m.id, m]));
   }, [buckets.live]);
 
-  const devPanel =
-    process.env.NODE_ENV === "development" ? (
-      <div className="rounded-lg border border-cyan-900/40 bg-cyan-950/20 px-3 py-2 font-mono text-[11px] leading-relaxed text-cyan-100/90">
-        <div className="font-semibold text-cyan-300/95">Dev · ingest</div>
-        <div>
-          providers:{" "}
-          {Object.entries(
-            rawCurrent.reduce<Record<string, number>>((acc, m) => {
-              acc[m.provider] = (acc[m.provider] ?? 0) + 1;
-              return acc;
-            }, {})
-          )
-            .map(([k, v]) => `${k}=${v}`)
-            .join(", ") || "—"}
-        </div>
-        <div>live tab: {buckets.live.length}</div>
-        <div>
-          IPL (detected) in live:{" "}
-          {
-            buckets.live.filter((m) =>
-              containsIplSignals(
-                `${m.league} ${m.team1} ${m.team2} ${m.matchType} ${m.status}`,
-                { silent: true }
-              )
-            ).length
-          }
-        </div>
-      </div>
-    ) : null;
-
   return (
     <div className="space-y-6">
-      {devPanel}
       <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-500">
         <span>
           {error ? (
