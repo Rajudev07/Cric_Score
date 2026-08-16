@@ -16,6 +16,8 @@ export default function FallOfWickets({
   wickets,
   isRefreshing = false,
 }: FallOfWicketsProps) {
+  if (!wickets.length) return null;
+
   return (
     <Card
       className={cn(
@@ -27,12 +29,7 @@ export default function FallOfWickets({
         <CardTitle className="text-lg text-zinc-100">Fall of wickets</CardTitle>
       </CardHeader>
       <CardContent className="pt-4">
-        {!wickets.length ? (
-          <p className="text-sm text-zinc-500">
-            Wicket fall lines are inferred from commentary when available.
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-zinc-800">
+        <div className="overflow-x-auto rounded-lg border border-zinc-800">
             <table className="w-full min-w-[360px] border-collapse text-left text-sm">
               <thead>
                 <tr className="border-b border-zinc-800 bg-zinc-950/80">
@@ -65,7 +62,6 @@ export default function FallOfWickets({
               </tbody>
             </table>
           </div>
-        )}
       </CardContent>
     </Card>
   );

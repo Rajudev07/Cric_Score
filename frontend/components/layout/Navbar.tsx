@@ -70,9 +70,19 @@ function IconHeart({ active }: { active?: boolean }) {
   );
 }
 
+function IconTrophy({ active }: { active?: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
+      <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 01-10 0V4zM5 4H3v2a4 4 0 004 4M19 4h2v2a4 4 0 01-4 4" />
+    </svg>
+  );
+}
+
 const desktopNav = [
   { href: "/", label: "Home" },
   { href: "/schedule", label: "Schedule" },
+  { href: "/rankings", label: "Rankings" },
+  { href: "/news", label: "News" },
 ] as const;
 
 export default function Navbar() {
@@ -181,6 +191,18 @@ export default function Navbar() {
         >
           <IconCalendar active={pathname === "/schedule"} />
           Schedule
+        </Link>
+        <Link
+          href="/rankings"
+          className={cn(
+            "flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-medium",
+            pathname === "/rankings"
+              ? "text-[var(--color-brand)]"
+              : "text-[var(--color-text-secondary)]"
+          )}
+        >
+          <IconTrophy active={pathname === "/rankings"} />
+          Rankings
         </Link>
         <button
           type="button"

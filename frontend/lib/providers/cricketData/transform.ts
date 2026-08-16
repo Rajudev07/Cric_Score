@@ -103,14 +103,30 @@ function extractScores(raw: Record<string, unknown>): {
 
 function deriveLeague(raw: Record<string, unknown>): string {
   const series = asRecord(raw.series);
-  return (
+  const seriesName =
     str(series?.name) ||
     str(raw.seriesName) ||
-    str(raw.series) ||
+    (typeof raw.series === "string" ? str(raw.series) : "");
+  const matchType =
     str(raw.matchType) ||
     str(raw.type) ||
-    "Cricket"
-  );
+    str(series?.matchType) ||
+    "";
+
+  const t = matchType.toLowerCase();
+  const s = seriesName.toLowerCase();
+
+  if (t.includes("test")) return "test";
+  if (t.includes("odi")) return "odi";
+  if (t.includes("t20i")) return "t20i";
+  if (t.includes("t20")) return "t20";
+
+  if (s.includes("test")) return "test";
+  if (s.includes("odi") || s.includes("one day")) return "odi";
+  if (s.includes("t20i") || s.includes("twenty20 international")) return "t20i";
+  if (s.includes("t20") || s.includes("twenty20")) return "t20";
+
+  return "t20";
 }
 
 function isCompletedStatusText(status: string): boolean {
@@ -208,12 +224,15 @@ function deriveLive(raw: Record<string, unknown>): boolean {
 
 function deriveMatchType(raw: Record<string, unknown>): string {
   const series = asRecord(raw.series);
-  return (
+  const rawType =
     str(raw.matchType) ||
     str(raw.type) ||
     str(series?.matchType) ||
-    ""
-  );
+    "";
+  if (!rawType || rawType.toLowerCase() === "cricket") {
+    return deriveLeague(raw);
+  }
+  return rawType;
 }
 
 function deriveStartTimeIso(raw: Record<string, unknown>): string | null {

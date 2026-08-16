@@ -25,6 +25,8 @@ export default function PartnershipChart({
     return () => cancelAnimationFrame(t);
   }, [partnerships]);
 
+  if (!partnerships.length) return null;
+
   const totalRuns = partnerships.reduce((s, p) => s + Math.max(0, p.runs), 0) || 1;
 
   return (
@@ -38,12 +40,7 @@ export default function PartnershipChart({
         <CardTitle className="text-lg text-zinc-100">Partnerships</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
-        {!partnerships.length ? (
-          <p className="text-sm text-zinc-500">
-            Partnership lines appear when commentary or scorecard lists pairs.
-          </p>
-        ) : (
-          partnerships.map((p, i) => {
+        {partnerships.map((p, i) => {
             const pct = Math.min(100, (p.runs / totalRuns) * 100);
             const label =
               p.batters && p.batters !== "—"
@@ -65,8 +62,7 @@ export default function PartnershipChart({
                 </div>
               </div>
             );
-          })
-        )}
+          })}
       </CardContent>
     </Card>
   );

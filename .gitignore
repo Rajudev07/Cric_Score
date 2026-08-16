@@ -1,5 +1,7 @@
-".zeroui/" 
-".vscode/" 
-"node_modules/" 
-".env" 
-"*.log" 
+.zeroui/
+.vscode/
+node_modules/
+.env
+*.log
+.venv/
+frontend/.venv/

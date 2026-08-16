@@ -208,14 +208,16 @@ export default function LiveMatchDetailView({
                 />
               </div>
               <div className="grid gap-6 lg:grid-cols-2">
-                <Card className="border-zinc-800 bg-zinc-900 ring-zinc-800">
-                  <CardHeader className="border-b border-zinc-800 pb-4">
-                    <CardTitle className="text-lg text-zinc-100">Ball timeline</CardTitle>
-                  </CardHeader>
-                  <CardContent className="overflow-x-auto pt-4">
-                    <BallTimeline events={liveDerived.ballEvents} />
-                  </CardContent>
-                </Card>
+                {liveDerived.ballEvents.length > 0 ? (
+                  <Card className="border-zinc-800 bg-zinc-900 ring-zinc-800">
+                    <CardHeader className="border-b border-zinc-800 pb-4">
+                      <CardTitle className="text-lg text-zinc-100">Ball timeline</CardTitle>
+                    </CardHeader>
+                    <CardContent className="overflow-x-auto pt-4">
+                      <BallTimeline events={liveDerived.ballEvents} />
+                    </CardContent>
+                  </Card>
+                ) : null}
                 <MomentumBar
                   momentum={liveDerived.momentum}
                   isRefreshing={isValidating}

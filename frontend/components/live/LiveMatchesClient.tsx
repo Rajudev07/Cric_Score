@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import HomeMatchTabs from "@/components/home/HomeMatchTabs";
+import NewsSection from "@/components/home/NewsSection";
 import RevalidatingIcon from "@/components/live/RevalidatingIcon";
 import { Button } from "@/components/ui/button";
 import type { Match } from "@/lib/data/matches";
@@ -121,6 +122,8 @@ export default function LiveMatchesClient({
           )}
         </span>
       </div>
+
+      <NewsSection />
 
       <HomeMatchTabs
         live={buckets.live}

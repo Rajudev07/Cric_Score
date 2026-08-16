@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Clock } from "lucide-react";
 import type { BattingRow, BowlingRow } from "@/lib/data/matches";
 import ScorecardTable from "@/components/matches/ScorecardTable";
+import TabEmptyState from "@/components/match/TabEmptyState";
 import { cn } from "@/lib/utils";
 
 type Mode = "batting" | "bowling";
@@ -37,16 +39,20 @@ export default function ScorecardSection({
         batting.length > 0 ? (
           <ScorecardTable variant="batting" rows={batting} />
         ) : (
-          <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-500">
-            Batting scorecard is not available for this match yet.
-          </p>
+          <TabEmptyState
+            icon={Clock}
+            text="Scorecard updates after the match"
+            subtext="Live scores are updating above"
+          />
         )
       ) : bowling.length > 0 ? (
         <ScorecardTable variant="bowling" rows={bowling} />
       ) : (
-        <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-500">
-          Bowling figures are not available for this match yet.
-        </p>
+        <TabEmptyState
+          icon={Clock}
+          text="Scorecard updates after the match"
+          subtext="Live scores are updating above"
+        />
       )}
     </div>
   );

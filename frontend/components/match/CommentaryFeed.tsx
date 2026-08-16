@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { MicOff } from "lucide-react";
 import type { CommentaryItem } from "@/lib/data/matches";
 import CommentaryCard from "@/components/matches/CommentaryCard";
+import TabEmptyState from "@/components/match/TabEmptyState";
 import { Button } from "@/components/ui/button";
 
 const PAGE = 20;
@@ -33,9 +35,11 @@ export default function CommentaryFeed({ items }: { items: CommentaryItem[] }) {
 
   if (!items.length) {
     return (
-      <p className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-4 py-6 text-sm text-zinc-500">
-        Commentary feed is not available for this match.
-      </p>
+      <TabEmptyState
+        icon={MicOff}
+        text="Commentary not available"
+        subtext="Check back during active play"
+      />
     );
   }
 

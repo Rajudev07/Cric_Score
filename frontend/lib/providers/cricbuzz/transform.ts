@@ -500,8 +500,12 @@ function buildMatchFromParts(
     "Live";
 
   const series = str(mi.seriesName ?? mi.series ?? row.seriesName ?? row.series ?? "");
-  const matchType = str(mi.matchType ?? mi.type ?? row.matchType ?? row.type ?? "T20");
-  const league = deriveLeagueLabel(series, status, team1, team2, matchType);
+  const matchTypeRaw = str(mi.matchType ?? mi.type ?? row.matchType ?? row.type ?? "T20");
+  const format = deriveLeague(matchTypeRaw, series);
+  let league = deriveLeagueLabel(series, status, team1, team2, matchTypeRaw);
+  if (league.toLowerCase() === "cricket") league = format;
+  const matchType =
+    !matchTypeRaw || matchTypeRaw.toLowerCase() === "cricket" ? format : matchTypeRaw;
 
   const ms = asRecord(row.matchScore) ?? asRecord(row.score) ?? asRecord(mi.matchScore);
   let score1 = "—";

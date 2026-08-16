@@ -49,7 +49,9 @@ export default function MatchTimeline({
   isRefreshing = false,
 }: MatchTimelineProps) {
   const rows = buildTimelineRows(commentary, 48);
-  const lastId = rows.length ? rows[rows.length - 1]?.id : "";
+  if (!rows.length) return null;
+
+  const lastId = rows[rows.length - 1]?.id ?? "";
 
   return (
     <Card
@@ -65,21 +67,15 @@ export default function MatchTimeline({
         </p>
       </CardHeader>
       <CardContent className="max-h-[28rem] overflow-y-auto pt-2 pr-1">
-        {!rows.length ? (
-          <p className="py-6 text-sm text-zinc-500">
-            Timeline fills when classified commentary lines are available.
-          </p>
-        ) : (
-          <div className="space-y-0.5">
-            {rows.map((row) => (
-              <TimelineEvent
-                key={row.id}
-                row={row}
-                isLatest={row.id === lastId}
-              />
-            ))}
-          </div>
-        )}
+        <div className="space-y-0.5">
+          {rows.map((row) => (
+            <TimelineEvent
+              key={row.id}
+              row={row}
+              isLatest={row.id === lastId}
+            />
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

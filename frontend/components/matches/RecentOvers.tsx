@@ -17,6 +17,8 @@ export default function RecentOvers({
   overs,
   isRefreshing = false,
 }: RecentOversProps) {
+  if (!overs.length) return null;
+
   return (
     <Card
       className={cn(
@@ -31,12 +33,7 @@ export default function RecentOvers({
         </p>
       </CardHeader>
       <CardContent className="space-y-5 pt-4">
-        {!overs.length ? (
-          <p className="text-sm text-zinc-500">
-            Over summaries appear when commentary includes ball-by-ball lines.
-          </p>
-        ) : (
-          overs.map((o) => (
+        {overs.map((o) => (
             <div key={o.overNumber} className="space-y-2">
               <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                 Over {o.overNumber}
@@ -54,8 +51,7 @@ export default function RecentOvers({
                 ))}
               </div>
             </div>
-          ))
-        )}
+          ))}
       </CardContent>
     </Card>
   );

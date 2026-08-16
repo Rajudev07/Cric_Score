@@ -26,13 +26,7 @@ interface BallTimelineProps {
 }
 
 export default function BallTimeline({ events, maxOvers = 5 }: BallTimelineProps) {
-  if (!events.length) {
-    return (
-      <p className="py-4 text-sm text-zinc-500">
-        Ball chips appear when commentary includes over-by-over lines.
-      </p>
-    );
-  }
+  if (!events.length) return null;
 
   const byOver = new Map<number, BallEvent[]>();
   for (const e of events) {
